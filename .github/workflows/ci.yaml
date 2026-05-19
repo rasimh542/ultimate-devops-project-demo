@@ -119,7 +119,7 @@ jobs:
                 audience: sts.amazonaws.com
                 aws-region: eu-north-1
                 role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
-            - name: check AWS command
+            - name: verify command output
               run: aws sts get-caller-identity
             
         
