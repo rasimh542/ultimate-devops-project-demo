@@ -169,7 +169,7 @@ jobs:
     deploy-staging:
         runs-on: ubuntu-latest
     
-        needs: [updatek8s, generate-tag]
+        needs: [deploy-qa, generate-tag]
     
         environment: staging
     
@@ -210,9 +210,9 @@ jobs:
     deploy-prod:
         runs-on: ubuntu-latest
     
-        needs: [updatek8s, generate-tag]
+        needs: [deploy-staging, generate-tag]
     
-        environment: staging
+        environment: prod
     
         steps:
           - name: Checkout code
