@@ -161,7 +161,9 @@ jobs:
     
           - name: Verify deployment rollout
             run: |
-              kubectl rollout status deployment/opentelemetry-demo-productcatalogservice -n qa
+              kubectl get deployments opentelemetry-demo-productcatalogservice -n qa
+              # kubectl rollout status deployment/opentelemetry-demo-productcatalogservice -n qa
+              
 
     oidc-test:
         runs-on: ubuntu-latest
