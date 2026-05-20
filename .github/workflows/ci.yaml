@@ -67,11 +67,9 @@ jobs:
             working-directory: src/product-catalog
 
     docker:
-        runs-on: ubuntu-latest
-
-        needs: build
-
-        steps:
+      runs-on: ubuntu-latest
+      needs: [build, generate-tag]
+      steps:
         - name: Set date
           run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
         
@@ -97,11 +95,9 @@ jobs:
 
     
     updatek8s:
-        runs-on: ubuntu-latest
-
-        needs: docker
-
-        steps:
+      runs-on: ubuntu-latest
+      needs: [docker, generate-tag]
+      steps:
         - name: Set date
           run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
         
