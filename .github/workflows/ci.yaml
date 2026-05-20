@@ -98,7 +98,10 @@ jobs:
         #   with:
         #     token: ${{ secrets.TOKEN }}
         #     persist-credentials: true
-
+        
+        - name: List files in workspace root
+          run: ls -la
+          
         - name: Update tag in kubernetes deployment manifest
           run: | 
                sed -i "s|image: .*|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:${{ env.DATE }}|" kubernetes/productcatalog/deploy.yaml
