@@ -93,12 +93,9 @@ jobs:
         - name: Set date
           run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
         
-        # - name: checkout code
-        #   uses: actions/checkout@v4
-        #   with:
-        #     token: ${{ secrets.TOKEN }}
-        #     persist-credentials: true
-        
+        - name: checkout code
+          uses: actions/checkout@v4
+          
         - name: List files in workspace root
           run: ls -la
           
