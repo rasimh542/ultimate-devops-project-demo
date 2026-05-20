@@ -95,6 +95,11 @@ jobs:
         
         - name: checkout code
           uses: actions/checkout@v4
+          with:
+            # FIX 2: Force checkout of the actual HEAD branch of the PR, not the merge preview
+            ref: ${{ github.head_ref }}
+            token: ${{ secrets.TOKEN }}
+            persist-credentials: true
           
         
         - name: List files in workspace root
