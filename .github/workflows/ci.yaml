@@ -98,7 +98,7 @@ jobs:
           with:
             # FIX 2: Force checkout of the actual HEAD branch of the PR, not the merge preview
             ref: ${{ github.head_ref }}
-            token: ${{ secrets.TOKEN }}
+            token: ${{ github.token }}
             persist-credentials: true
           
         
