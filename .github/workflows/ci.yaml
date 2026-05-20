@@ -166,6 +166,87 @@ jobs:
               kubectl get deployments opentelemetry-demo-productcatalogservice -n qa
               # kubectl rollout status deployment/opentelemetry-demo-productcatalogservice -n qa
               
+    deploy-staging:
+        runs-on: ubuntu-latest
+    
+        needs: [updatek8s, generate-tag]
+    
+        environment: staging
+    
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v4
+    
+          - name: Configure AWS credentials
+            uses: aws-actions/configure-aws-credentials@v6.1.0
+            with:
+              audience: sts.amazonaws.com
+              aws-region: eu-north-1
+              role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+    
+          - name: Update kubeconfig
+            run: |
+              aws eks update-kubeconfig \
+                --region eu-north-1 \
+                --name rasim-eks-cluster
+    
+          - name: Verify cluster connection
+            run: kubectl get nodes
+    
+          - name: Create staging namespace if not exists
+            run: |
+              kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
+    
+          - name: Apply Kubernetes manifests
+            run: |
+              kubectl apply -f kubernetes/productcatalog/deploy.yaml -n staging
+    
+    
+          - name: Verify deployment rollout
+            run: |
+              kubectl get deployments opentelemetry-demo-productcatalogservice -n staging
+              # kubectl rollout status deployment/opentelemetry-demo-productcatalogservice -n staging
+              
+    deploy-prod:
+        runs-on: ubuntu-latest
+    
+        needs: [updatek8s, generate-tag]
+    
+        environment: staging
+    
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v4
+    
+          - name: Configure AWS credentials
+            uses: aws-actions/configure-aws-credentials@v6.1.0
+            with:
+              audience: sts.amazonaws.com
+              aws-region: eu-north-1
+              role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+    
+          - name: Update kubeconfig
+            run: |
+              aws eks update-kubeconfig \
+                --region eu-north-1 \
+                --name rasim-eks-cluster
+    
+          - name: Verify cluster connection
+            run: kubectl get nodes
+    
+          - name: Create prod namespace if not exists
+            run: |
+              kubectl create namespace prod --dry-run=client -o yaml | kubectl apply -f -
+    
+          - name: Apply Kubernetes manifests
+            run: |
+              kubectl apply -f kubernetes/productcatalog/deploy.yaml -n prod
+    
+    
+          - name: Verify deployment rollout
+            run: |
+              kubectl get deployments opentelemetry-demo-productcatalogservice -n prod
+              # kubectl rollout status deployment/opentelemetry-demo-productcatalogservice -n prod
 
     oidc-test:
         runs-on: ubuntu-latest
