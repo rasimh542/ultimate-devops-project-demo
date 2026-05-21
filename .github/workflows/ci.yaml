@@ -144,7 +144,7 @@ jobs:
          - name: Download modified deployment manifest from updatek8s
            uses: actions/download-artifact@v4
            with:
-             name: updated-k8s-deployment
+             name: updated-k8s-deployment-tag
              path: kubernetes/productcatalog/
     
          - name: Verify manifest contains the correct generated tag
@@ -191,7 +191,7 @@ jobs:
           - name: Download modified deployment manifest from updatek8s
             uses: actions/download-artifact@v4
             with:
-              name: updated-k8s-deployment
+              name: updated-k8s-deployment-tag
               path: kubernetes/productcatalog/
     
           - name: Verify manifest contains the correct generated tag
@@ -238,7 +238,7 @@ jobs:
           - name: Download modified deployment manifest from updatek8s
             uses: actions/download-artifact@v4
             with:
-              name: updated-k8s-deployment
+              name: updated-k8s-deployment-tag
               path: kubernetes/productcatalog/
     
           - name: Verify manifest contains the correct generated tag
