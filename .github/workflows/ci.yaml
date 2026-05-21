@@ -117,6 +117,7 @@ jobs:
         - name: Update tag in kubernetes deployment manifest
           run: | 
                sed -i "s|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:{{TAG}}|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:${{ needs.generate-tag.outputs.image_tag }}|" kubernetes/productcatalog/deploy.yaml
+               grep "image:" kubernetes/productcatalog/deploy.yaml
                #echo    
         - name: Upload modified manifest as artifact
           uses: actions/upload-artifact@v4
