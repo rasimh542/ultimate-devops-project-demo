@@ -118,6 +118,13 @@ jobs:
           run: | 
                sed -i "s|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:{{TAG}}|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:${{ needs.generate-tag.outputs.image_tag }}|" kubernetes/productcatalog/deploy.yaml
                #echo    
+        - name: Upload modified manifest as artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: updated-k8s-deployment-tag
+            path: kubernetes/productcatalog/deploy.yaml
+            retention-days: 1 # Automatically discards the temporary file after 24 hours
+            
         # - name: Commit and push changes
         #   run: |
         #     git config --global user.email "rasimh542@gmail.com"
@@ -134,36 +141,42 @@ jobs:
         environment: qa
     
         steps:
-          - name: Checkout code
-            uses: actions/checkout@v4
+         - name: Download modified deployment manifest from updatek8s
+           uses: actions/download-artifact@v4
+           with:
+             name: updated-k8s-deployment
+             path: kubernetes/productcatalog/
     
-          - name: Configure AWS credentials
-            uses: aws-actions/configure-aws-credentials@v6.1.0
-            with:
-              audience: sts.amazonaws.com
-              aws-region: eu-north-1
-              role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+         - name: Verify manifest contains the correct generated tag
+           run: cat kubernetes/productcatalog/deploy.yaml
     
-          - name: Update kubeconfig
-            run: |
+         - name: Configure AWS credentials
+           uses: aws-actions/configure-aws-credentials@v6.1.0
+           with:
+             audience: sts.amazonaws.com
+             aws-region: eu-north-1
+             role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+             
+         - name: Update kubeconfig
+           run: |
               aws eks update-kubeconfig \
                 --region eu-north-1 \
                 --name rasim-eks-cluster
     
-          - name: Verify cluster connection
-            run: kubectl get nodes
+         - name: Verify cluster connection
+           run: kubectl get nodes
     
-          - name: Create QA namespace if not exists
-            run: |
+         - name: Create QA namespace if not exists
+           run: |
               kubectl create namespace qa --dry-run=client -o yaml | kubectl apply -f -
     
-          - name: Apply Kubernetes manifests
-            run: |
+         - name: Apply Kubernetes manifests
+           run: |
               kubectl apply -f kubernetes/productcatalog/deploy.yaml -n qa
     
     
-          - name: Verify deployment rollout
-            run: |
+         - name: Verify deployment rollout
+           run: |
               kubectl get deployments opentelemetry-demo-productcatalogservice -n qa
               # kubectl rollout status deployment/opentelemetry-demo-productcatalogservice -n qa
               
@@ -175,8 +188,14 @@ jobs:
         environment: staging
     
         steps:
-          - name: Checkout code
-            uses: actions/checkout@v4
+          - name: Download modified deployment manifest from updatek8s
+            uses: actions/download-artifact@v4
+            with:
+              name: updated-k8s-deployment
+              path: kubernetes/productcatalog/
+    
+          - name: Verify manifest contains the correct generated tag
+            run: cat kubernetes/productcatalog/deploy.yaml
     
           - name: Configure AWS credentials
             uses: aws-actions/configure-aws-credentials@v6.1.0
@@ -216,8 +235,14 @@ jobs:
         environment: prod
     
         steps:
-          - name: Checkout code
-            uses: actions/checkout@v4
+          - name: Download modified deployment manifest from updatek8s
+            uses: actions/download-artifact@v4
+            with:
+              name: updated-k8s-deployment
+              path: kubernetes/productcatalog/
+    
+          - name: Verify manifest contains the correct generated tag
+            run: cat kubernetes/productcatalog/deploy.yaml
     
           - name: Configure AWS credentials
             uses: aws-actions/configure-aws-credentials@v6.1.0
