@@ -7,8 +7,6 @@ on:
         workflows: ["build-and-push"]
         types:
             - completed
-        branches:
-            - main
     
     workflow_dispatch:
 
@@ -29,7 +27,7 @@ jobs:
         - name: checkout code
           uses: actions/checkout@v4
           with:
-            ref: ${{ github.head_ref }}
+            ref: ${{ github.event.workflow_run.head_branch }}
             token: ${{ github.token }}
             persist-credentials: true
 
