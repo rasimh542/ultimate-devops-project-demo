@@ -15,17 +15,6 @@ permissions:
     
 jobs:
 
-    generate-tag:
-        runs-on: ubuntu-latest
-    
-        outputs:
-          image_tag: ${{ steps.tag.outputs.image_tag }}
-    
-        steps:
-          - name: Generate image tag
-            id: tag
-            run: |
-              echo "image_tag=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
     build:
         runs-on: ubuntu-latest
 
@@ -37,6 +26,13 @@ jobs:
           uses: actions/setup-go@v2
           with:
             go-version: 1.22
+            
+        - name: Generate and Save Tag
+          run: |
+            # Combines the fixed version prefix with the timestamp
+            TAG="v1.0_$(date +'%Y%m%d%H%M%S')"
+            echo "$TAG" > release-tag.txt
+            echo "Generated Tag: $TAG"
         
         - name: Build
           run: |
@@ -48,6 +44,13 @@ jobs:
           run: |
             cd src/product-catalog
             go test ./...
+
+        - name: Upload Tag Artifact
+          uses: actions/upload-artifact@v4
+          with:
+              name: release-tag
+              path: release-tag.txt
+              retention-days: 90
     
     code-quality:
         runs-on: ubuntu-latest
@@ -70,16 +73,28 @@ jobs:
 
     docker:
       runs-on: ubuntu-latest
-      needs: [build, generate-tag]
+      needs: [build]
       steps:
-        - name: Set date
-          run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+        # - name: Set date
+        #   run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
         
         - name: checkout code
           uses: actions/checkout@v4
 
+        - name: Download Tag Artifact
+          uses: actions/download-artifact@v4
+          with:
+            name: release-tag # Must match the upload name exactly
+
+        - name: Read Tag into Environment Variable
+          id: get_tag
+          run: |
+            # Reads the file content and strips any trailing newlines
+            TAG_VALUE=$(cat release-tag.txt | tr -d '\n')
+            echo "IMAGE_TAG=$TAG_VALUE" >> $GITHUB_ENV
+
         - name: Install Docker
-          uses: docker/setup-buildx-action@v1
+          uses: docker/setup-buildx-action@v3
         
         - name: Login to Docker
           uses: docker/login-action@v3
@@ -93,15 +108,15 @@ jobs:
             context: src/product-catalog
             file: src/product-catalog/Dockerfile
             push: true
-            tags: ${{ secrets.DOCKER_USERNAME }}/product-catalog:${{ needs.generate-tag.outputs.image_tag }}
+            tags: ${{ secrets.DOCKER_USERNAME }}/product-catalog:${{ env.IMAGE_TAG }}
 
     
     updatek8s:
       runs-on: ubuntu-latest
-      needs: [docker, generate-tag]
+      needs: [docker]
       steps:
-        - name: Set date
-          run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+        # - name: Set date
+        #   run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
         
         - name: checkout code
           uses: actions/checkout@v4
@@ -110,15 +125,28 @@ jobs:
             ref: ${{ github.head_ref }}
             token: ${{ github.token }}
             persist-credentials: true
+
+        - name: Download Tag Artifact
+          uses: actions/download-artifact@v4
+          with:
+            name: release-tag # Must match the upload name exactly
+
+        - name: Read Tag into Environment Variable
+          id: get_tag
+          run: |
+            # Reads the file content and strips any trailing newlines
+            TAG_VALUE=$(cat release-tag.txt | tr -d '\n')
+            echo "IMAGE_TAG=$TAG_VALUE" >> $GITHUB_ENV
             
         - name: List files in workspace root
           run: ls -la
           
         - name: Update tag in kubernetes deployment manifest and verify
           run: | 
-               sed -i "s|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:{{TAG}}|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:${{ needs.generate-tag.outputs.image_tag }}|" kubernetes/productcatalog/deploy.yaml
+               sed -i "s|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:{{TAG}}|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:${{ env.IMAGE_TAG }}|" kubernetes/productcatalog/deploy.yaml
                grep "image:" kubernetes/productcatalog/deploy.yaml
-               #echo    
+               #echo 
+               
         - name: Upload modified manifest as artifact
           uses: actions/upload-artifact@v4
           with:
@@ -137,7 +165,7 @@ jobs:
     deploy-qa:
         runs-on: ubuntu-latest
     
-        needs: [updatek8s, generate-tag]
+        needs: [updatek8s]
     
         environment: qa
     
@@ -152,7 +180,7 @@ jobs:
            run: grep "image:" kubernetes/productcatalog/deploy.yaml
     
          - name: Configure AWS credentials
-           uses: aws-actions/configure-aws-credentials@v6.1.0
+           uses: aws-actions/configure-aws-credentials@4
            with:
              audience: sts.amazonaws.com
              aws-region: eu-north-1
@@ -184,7 +212,7 @@ jobs:
     deploy-staging:
         runs-on: ubuntu-latest
     
-        needs: [deploy-qa, generate-tag]
+        needs: [deploy-qa]
     
         environment: staging
     
@@ -199,7 +227,7 @@ jobs:
             run: cat kubernetes/productcatalog/deploy.yaml
     
           - name: Configure AWS credentials
-            uses: aws-actions/configure-aws-credentials@v6.1.0
+            uses: aws-actions/configure-aws-credentials@v4
             with:
               audience: sts.amazonaws.com
               aws-region: eu-north-1
@@ -231,7 +259,7 @@ jobs:
     deploy-prod:
         runs-on: ubuntu-latest
     
-        needs: [deploy-staging, generate-tag]
+        needs: [deploy-staging]
     
         environment: prod
     
@@ -246,7 +274,7 @@ jobs:
             run: cat kubernetes/productcatalog/deploy.yaml
     
           - name: Configure AWS credentials
-            uses: aws-actions/configure-aws-credentials@v6.1.0
+            uses: aws-actions/configure-aws-credentials@v4
             with:
               audience: sts.amazonaws.com
               aws-region: eu-north-1
