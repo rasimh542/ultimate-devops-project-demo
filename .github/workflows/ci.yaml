@@ -248,7 +248,6 @@ jobs:
     
         steps:
          
-
          - name: checkout code
            uses: actions/checkout@v4
            with:
@@ -316,8 +315,7 @@ jobs:
         environment: prod
     
         steps:
-
-       
+        
           - name: checkout code
             uses: actions/checkout@v4
             with:
