@@ -1,0 +1,64 @@
+name: manual-rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: 'Select the environment to rollback'
+        required: true
+        type: choice
+        options:
+          - qa
+          - staging
+          - prod
+      rollback_tag:
+        description: 'Enter the exact tag version to rollback to (e.g., v1.0_20260527154500)'
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.target_env }}
+
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+        with:
+          # Pulls the main branch configuration to update manifests
+          ref: main
+
+      - name: Update tag in kubernetes deployment manifest
+        run: | 
+          # Overwrites whatever image tag is currently in the manifest with the rollback target
+          sed -i "s|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:.*|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:${{ github.event.inputs.rollback_tag }}|" kubernetes/productcatalog/deploy.yaml
+          echo "Target deployment manifest prepared for version: ${{ github.event.inputs.rollback_tag }}"
+          grep "image:" kubernetes/productcatalog/deploy.yaml
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4.0.2
+        with:
+           audience: ://amazonaws.com
+           aws-region: eu-north-1
+           role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+             
+      - name: Update kubeconfig
+        run: |
+            aws eks update-kubeconfig \
+              --region eu-north-1 \
+              --name rasim-eks-cluster
+    
+      - name: Verify cluster connection
+        run: kubectl get nodes
+    
+      - name: Apply Kubernetes manifests to target environment
+        run: |
+            kubectl apply -f kubernetes/productcatalog/deploy.yaml -n ${{ github.event.inputs.target_env }}
+    
+      - name: Verify deployment rollout status
+        run: |
+            kubectl rollout status deployment/opentelemetry-demo-productcatalogservice -n ${{ github.event.inputs.target_env }} --timeout=2m
