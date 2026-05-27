@@ -1,0 +1,230 @@
+# CD for Product Catalog Service - Deploy
+
+name: deploy
+
+on:
+    workflow_run:
+        workflows: ["build-and-push"]
+        types:
+            - completed
+        branches:
+            - main
+    
+    workflow_dispatch:
+
+permissions:
+    id-token: write
+    contents: write
+    
+jobs:
+    
+    deploy-qa:
+        runs-on: ubuntu-latest
+        
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
+        environment: qa
+    
+        steps:
+        - name: checkout code
+          uses: actions/checkout@v4
+          with:
+            ref: ${{ github.head_ref }}
+            token: ${{ github.token }}
+            persist-credentials: true
+
+        - name: Download Tag Artifact
+          uses: actions/download-artifact@v4
+          with:
+            name: release-tag
+            github-token: ${{ github.token }}
+            run-id: ${{ github.event.workflow_run.id }}
+            
+        - name: List files in workspace root
+          run: ls -la
+        
+        - name: Read Tag into Environment Variable
+          id: get_tag
+          run: |
+            TAG_VALUE=$(cat release-tag.txt | tr -d '\n')
+            echo "IMAGE_TAG=$TAG_VALUE" >> $GITHUB_ENV
+            
+        - name: Update tag in kubernetes deployment manifest and verify
+          run: | 
+               sed -i "s|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:.*|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:${{ env.IMAGE_TAG }}|" kubernetes/productcatalog/deploy.yaml
+               grep "image:" kubernetes/productcatalog/deploy.yaml
+
+         
+        - name: Configure AWS credentials
+          uses: aws-actions/configure-aws-credentials@v6.1.0
+          with:
+             audience: sts.amazonaws.com
+             aws-region: eu-north-1
+             role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+             
+        - name: Update kubeconfig
+          run: |
+              aws eks update-kubeconfig \
+                --region eu-north-1 \
+                --name rasim-eks-cluster
+    
+        - name: Verify cluster connection
+          run: kubectl get nodes
+    
+        - name: Create QA namespace if not exists
+          run: |
+              kubectl create namespace qa --dry-run=client -o yaml | kubectl apply -f -
+    
+        - name: Apply Kubernetes manifests
+          run: |
+              kubectl apply -f kubernetes/productcatalog/deploy.yaml -n qa
+    
+        - name: Verify deployment rollout
+          run: |
+              kubectl get deployments opentelemetry-demo-productcatalogservice -n qa
+              
+    deploy-staging:
+        runs-on: ubuntu-latest
+    
+        needs: [deploy-qa]
+    
+        environment: staging
+    
+        steps:
+         
+         - name: checkout code
+           uses: actions/checkout@v4
+           with:
+            ref: ${{ github.head_ref }}
+            token: ${{ github.token }}
+            persist-credentials: true
+
+         - name: Download Tag Artifact
+           uses: actions/download-artifact@v4
+           with:
+            name: release-tag
+            github-token: ${{ github.token }}
+            run-id: ${{ github.event.workflow_run.id }}
+            
+         - name: List files in workspace root
+           run: ls -la
+        
+         - name: Read Tag into Environment Variable
+           id: get_tag
+           run: |
+            TAG_VALUE=$(cat release-tag.txt | tr -d '\n')
+            echo "IMAGE_TAG=$TAG_VALUE" >> $GITHUB_ENV
+            
+       
+         - name: Update tag in kubernetes deployment manifest and verify
+           run: | 
+               sed -i "s|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:.*|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:${{ env.IMAGE_TAG }}|" kubernetes/productcatalog/deploy.yaml
+               grep "image:" kubernetes/productcatalog/deploy.yaml
+    
+         - name: Configure AWS credentials
+           uses: aws-actions/configure-aws-credentials@v6.1.0
+           with:
+              audience: sts.amazonaws.com
+              aws-region: eu-north-1
+              role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+    
+         - name: Update kubeconfig
+           run: |
+              aws eks update-kubeconfig \
+                --region eu-north-1 \
+                --name rasim-eks-cluster
+    
+         - name: Verify cluster connection
+           run: kubectl get nodes
+    
+         - name: Create staging namespace if not exists
+           run: |
+              kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
+    
+         - name: Apply Kubernetes manifests
+           run: |
+              kubectl apply -f kubernetes/productcatalog/deploy.yaml -n staging
+    
+    
+         - name: Verify deployment rollout
+           run: |
+              kubectl get deployments opentelemetry-demo-productcatalogservice -n staging
+              
+    deploy-prod:
+        runs-on: ubuntu-latest
+    
+        needs: [deploy-staging]
+    
+        environment: prod
+    
+        steps:
+        
+          - name: checkout code
+            uses: actions/checkout@v4
+            with:
+             ref: ${{ github.head_ref }}
+             token: ${{ github.token }}
+             persist-credentials: true
+
+          - name: Download Tag Artifact
+            uses: actions/download-artifact@v4
+            with:
+              name: release-tag
+              github-token: ${{ github.token }}
+              run-id: ${{ github.event.workflow_run.id }}
+            
+          - name: List files in workspace root
+            run: ls -la
+        
+          - name: Read Tag into Environment Variable
+            id: get_tag
+            run: |
+             TAG_VALUE=$(cat release-tag.txt | tr -d '\n')
+             echo "IMAGE_TAG=$TAG_VALUE" >> $GITHUB_ENV
+            
+       
+          - name: Update tag in kubernetes deployment manifest and verify
+            run: | 
+               sed -i "s|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:.*|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:${{ env.IMAGE_TAG }}|" kubernetes/productcatalog/deploy.yaml
+               grep "image:" kubernetes/productcatalog/deploy.yaml
+              
+          - name: Configure AWS credentials
+            uses: aws-actions/configure-aws-credentials@v6.1.0
+            with:
+              audience: sts.amazonaws.com
+              aws-region: eu-north-1
+              role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+    
+          - name: Update kubeconfig
+            run: |
+              aws eks update-kubeconfig \
+                --region eu-north-1 \
+                --name rasim-eks-cluster
+    
+          - name: Verify cluster connection
+            run: kubectl get nodes
+    
+          - name: Create prod namespace if not exists
+            run: |
+              kubectl create namespace prod --dry-run=client -o yaml | kubectl apply -f -
+    
+          - name: Apply Kubernetes manifests
+            run: |
+              kubectl apply -f kubernetes/productcatalog/deploy.yaml -n prod
+    
+    
+          - name: Verify deployment rollout
+            run: |
+              kubectl get deployments opentelemetry-demo-productcatalogservice -n prod
+
+    # oidc-test:
+    #     runs-on: ubuntu-latest
+    #     steps:
+    #         - name: Configure AWS Credentials connection test
+    #           uses: aws-actions/configure-aws-credentials@v6.1.0
+    #           with:
+    #             audience: sts.amazonaws.com
+    #             aws-region: eu-north-1
+    #             role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+    #         - name: verify command output
+    #           run: aws sts get-caller-identity
