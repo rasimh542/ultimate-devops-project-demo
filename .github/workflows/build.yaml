@@ -6,6 +6,9 @@ on:
     pull_request:
         branches:
         - main
+        # 👇 Add this block to ignore changes to all workflow files
+        paths-ignore:
+          - '.github/workflows/**'
     
     workflow_dispatch:
 
