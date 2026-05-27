@@ -109,58 +109,6 @@ jobs:
             file: src/product-catalog/Dockerfile
             push: true
             tags: ${{ secrets.DOCKER_USERNAME }}/product-catalog:${{ env.IMAGE_TAG }}
-
-    
-    # updatek8s:
-    #   runs-on: ubuntu-latest
-    #   needs: [docker]
-    #   steps:
-    #     # - name: Set date
-    #     #   run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
-        
-    #     - name: checkout code
-    #       uses: actions/checkout@v4
-    #       with:
-    #         # FIX 2: Force checkout of the actual HEAD branch of the PR, not the merge preview
-    #         ref: ${{ github.head_ref }}
-    #         token: ${{ github.token }}
-    #         persist-credentials: true
-
-    #     - name: Download Tag Artifact
-    #       uses: actions/download-artifact@v4
-    #       with:
-    #         name: release-tag # Must match the upload name exactly
-
-    #     - name: Read Tag into Environment Variable
-    #       id: get_tag
-    #       run: |
-    #         # Reads the file content and strips any trailing newlines
-    #         TAG_VALUE=$(cat release-tag.txt | tr -d '\n')
-    #         echo "IMAGE_TAG=$TAG_VALUE" >> $GITHUB_ENV
-            
-    #     - name: List files in workspace root
-    #       run: ls -la
-          
-    #     - name: Update tag in kubernetes deployment manifest and verify
-    #       run: | 
-    #            sed -i "s|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:{{TAG}}|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:${{ env.IMAGE_TAG }}|" kubernetes/productcatalog/deploy.yaml
-    #            grep "image:" kubernetes/productcatalog/deploy.yaml
-    #            #echo 
-               
-    #     - name: Upload modified manifest as artifact
-    #       uses: actions/upload-artifact@v4
-    #       with:
-    #         name: updated-k8s-deployment-tag
-    #         path: kubernetes/productcatalog/deploy.yaml
-    #         retention-days: 1 # Automatically discards the temporary file after 24 hours
-            
-        # - name: Commit and push changes
-        #   run: |
-        #     git config --global user.email "rasimh542@gmail.com"
-        #     git config --global user.name "Rasim Huseynov"
-        #     git add kubernetes/productcatalog/deploy.yaml
-        #     git commit -m "[CI]: Update product catalog image tag"
-        #     git push origin HEAD:main -f
             
     deploy-qa:
         runs-on: ubuntu-latest
@@ -341,7 +289,7 @@ jobs:
             
        
           - name: Update tag in kubernetes deployment manifest and verify
-           run: | 
+            run: | 
                sed -i "s|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:{{TAG}}|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:${{ env.IMAGE_TAG }}|" kubernetes/productcatalog/deploy.yaml
                grep "image:" kubernetes/productcatalog/deploy.yaml
               
