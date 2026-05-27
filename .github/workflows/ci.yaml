@@ -289,7 +289,7 @@ jobs:
             
        
           - name: Update tag in kubernetes deployment manifest and verify
-           run: | 
+            run: | 
                sed -i "s|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:{{TAG}}|image: ${{ secrets.DOCKER_USERNAME }}/product-catalog:${{ env.IMAGE_TAG }}|" kubernetes/productcatalog/deploy.yaml
                grep "image:" kubernetes/productcatalog/deploy.yaml
               
