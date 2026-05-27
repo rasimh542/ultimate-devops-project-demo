@@ -4,7 +4,7 @@ name: deploy
 
 on:
     workflow_run:
-        workflows: ["build"]
+        workflows: ["build-and-push"]
         types:
             - completed
         branches:
